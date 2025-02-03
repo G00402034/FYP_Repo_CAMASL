@@ -1,0 +1,29 @@
+.container {
+    padding: 20px;
+    text-align: center;
+  }
+  
+  .scoreList {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .scoreList li {
+    background: #f9f9f9;
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+  }
+  
+  .button {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #0070f3;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
