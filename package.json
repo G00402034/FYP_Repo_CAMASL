@@ -14,8 +14,10 @@
     "bcrypt": "^5.1.1",
     "mongodb": "^6.10.0",
     "next": "^15.1.6",
+    "next-worker": "^0.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-webcam": "^7.2.0"
+    "react-webcam": "^7.2.0",
+    "web-worker": "^1.5.0"
   }
 }

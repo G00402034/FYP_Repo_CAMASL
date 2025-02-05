@@ -1,3 +1,4 @@
+// pages/login.js
 import { useState } from "react";
 import { useRouter } from "next/router";
 
@@ -9,40 +10,50 @@ export default function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json();
 
-    const response = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      localStorage.setItem("loggedInUser", username); // Store user session
-      router.push("/"); // Redirect to home page
-    } else {
-      setError(data.message);
+      if (response.ok) {
+        // Save the username to local storage (or any token/identifier as needed)
+        localStorage.setItem("loggedInUser", username);
+        router.push("/");
+      } else {
+        setError(data.message);
+      }
+    } catch (error) {
+      console.error("Error logging in:", error);
+      setError("An unexpected error occurred.");
     }
   };
 
   return (
-    <div>
+    <div className="container">
       <h2>Login</h2>
-      <form onSubmit={handleLogin}>
+      <form onSubmit={handleLogin} className="form">
         <input
           type="text"
           placeholder="Username"
+          className="input"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
+          required
         />
         <input
           type="password"
           placeholder="Password"
+          className="input"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          required
         />
-        <button type="submit">Login</button>
+        <button type="submit" className="button">
+          Login
+        </button>
       </form>
       {error && <p>{error}</p>}
     </div>

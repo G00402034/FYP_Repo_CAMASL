@@ -1,106 +1,91 @@
 import React, { useEffect, useRef, useState } from "react";
-import * as tf from "@tensorflow/tfjs";
-import * as handpose from "@tensorflow-models/handpose";
 import Webcam from "react-webcam";
-import { drawHand } from "../utils/drawHand";
+// Import the worker using the next-worker loader syntax:
+import Worker from "../workers/handWorker.worker.js";
 
 export default function HandTracker({ onGestureDetected }) {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
-  const [model, setModel] = useState(null);
+  const [workerInstance, setWorkerInstance] = useState(null);
+  const [modelReady, setModelReady] = useState(false);
 
+  // Create the worker once when the component mounts.
   useEffect(() => {
-    const loadModel = async () => {
-      try {
-        console.log("Attempting to load ASL model...");
+    // Instantiate the worker using next-worker.
+    const worker = new Worker();
+    setWorkerInstance(worker);
+    console.log("HandTracker: Worker created", worker);
 
-        // Load the model
-        const loadedModel = await tf.loadLayersModel("/model/model.json");
-
-        // Ensure the model has the correct input shape
-        const newInput = tf.input({ shape: [224, 224, 3] });  // Explicitly setting input shape
-        const newModel = tf.model({
-          inputs: newInput,
-          outputs: loadedModel.outputs
-        });
-
-        setModel(newModel);
-        console.log("ASL Model Loaded Successfully");
-        console.log("Model Summary:", newModel.summary()); // Log model structure
-      } catch (error) {
-        console.error("Error loading ASL model:", error);
+    // Listen for messages from the worker.
+    worker.onmessage = (e) => {
+      const data = e.data;
+      if (data.status === "modelLoaded") {
+        setModelReady(true);
+        console.log("HandTracker: Model loaded in worker");
+      } else if (data.status === "modelError") {
+        console.error("HandTracker: Model load error in worker:", data.error);
+      } else if (data.predictedSign !== undefined) {
+        console.log("HandTracker: Received prediction from worker:", data.predictedSign);
+        if (onGestureDetected) onGestureDetected(data.predictedSign);
       }
     };
 
-    const runHandTracking = async () => {
-      const handposeModel = await handpose.load();
-      console.log("HandPose model loaded.");
-
-      const detectHands = async () => {
-        if (
-          webcamRef.current &&
-          webcamRef.current.video.readyState === 4
-        ) {
-          const video = webcamRef.current.video;
-          const videoWidth = video.videoWidth;
-          const videoHeight = video.videoHeight;
-
-          canvasRef.current.width = videoWidth;
-          canvasRef.current.height = videoHeight;
-
-          // Detect hands
-          const handEstimations = await handposeModel.estimateHands(video);
-          if (handEstimations.length > 0) {
-            console.log("Hand detected:", handEstimations);
-
-            // Extract the image for ASL Model Prediction
-            const detectedSign = await predictSign(video);
-            if (onGestureDetected) onGestureDetected(detectedSign);
-          }
-
-          // Draw hand landmarks
-          const ctx = canvasRef.current.getContext("2d");
-          ctx.clearRect(0, 0, videoWidth, videoHeight);
-          drawHand(handEstimations, ctx);
-        }
-      };
-
-      setInterval(detectHands, 500);
+    worker.onerror = (err) => {
+      console.error("HandTracker: Worker encountered an error:", err);
     };
 
-    loadModel();
-    runHandTracking();
-  }, []);
+    return () => {
+      worker.terminate();
+    };
+  }, [onGestureDetected]);
 
-  const predictSign = async (video) => {
-    if (!model) {
-      console.error("Model not loaded yet.");
-      return "Unknown";
-    }
+  // Detection loop: capture frames and send them to the worker when ready.
+  useEffect(() => {
+    let lastWorkerCall = Date.now();
 
-    // Convert video frame to Tensor
-    const tensor = tf.browser.fromPixels(video)
-      .resizeNearestNeighbor([224, 224])
-      .toFloat()
-      .div(255.0) // Normalize pixels between 0-1
-      .expandDims(0); // Add batch dimension
+    const detectHands = async () => {
+      if (
+        webcamRef.current &&
+        webcamRef.current.video.readyState === 4 &&
+        workerInstance &&
+        modelReady
+      ) {
+        const video = webcamRef.current.video;
+        // Update canvas dimensions (if needed)
+        canvasRef.current.width = video.videoWidth;
+        canvasRef.current.height = video.videoHeight;
 
-    const predictions = await model.predict(tensor).data();
-    const predictedIndex = predictions.indexOf(Math.max(...predictions));
-    const aslSigns = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+        const now = Date.now();
+        // Throttle sending frames (e.g. every 500ms)
+        if (now - lastWorkerCall > 500) {
+          lastWorkerCall = now;
+          try {
+            const imageBitmap = await createImageBitmap(video);
+            console.log("HandTracker: ImageBitmap created", imageBitmap.width, imageBitmap.height);
+            // Post the imageBitmap to the worker (transfer it).
+            workerInstance.postMessage({ command: "predict", imageBitmap }, [imageBitmap]);
+          } catch (err) {
+            console.error("HandTracker: Error creating ImageBitmap:", err);
+          }
+        }
+      }
+      setTimeout(detectHands, 100);
+    };
 
-    return aslSigns[predictedIndex] || "Unknown";
-  };
+    detectHands();
+  }, [workerInstance, modelReady]);
 
   return (
-    <div style={{
-      position: "relative",
-      width: "100%",
-      height: "100%",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center"
-    }}>
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
       {/* Webcam Feed */}
       <Webcam
         ref={webcamRef}
@@ -108,19 +93,22 @@ export default function HandTracker({ onGestureDetected }) {
           position: "absolute",
           width: "100%",
           height: "100%",
-          objectFit: "cover"
+          objectFit: "cover",
         }}
         mirrored
       />
-      {/* Canvas Overlay */}
-      <canvas ref={canvasRef} style={{
-        position: "absolute",
-        top: "0",
-        left: "0",
-        width: "100%",
-        height: "100%",
-        pointerEvents: "none"
-      }} />
+      {/* Canvas Overlay (if needed) */}
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+        }}
+      />
     </div>
   );
 }
