@@ -10,6 +10,7 @@
   /* Login form */
   .form {
     display: flex;
+    font-family: Arial, sans-serif;
     flex-direction: column;
     width: 300px;
   }

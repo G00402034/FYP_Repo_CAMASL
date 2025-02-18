@@ -1,4 +1,4 @@
-// /components/SignPrompt.js
+
 import React, { useEffect, useState } from 'react';
 
 export default function SignPrompt({ onNewPrompt, detectedGesture, isMatch }) {

@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import SignPrompt from "../components/SignPrompt";
 import HandTracker from "../components/HandTracker";
 import styles from "../styles/Home.module.css";
+import * as tf from "@tensorflow/tfjs";
 
 export default function Home() {
   const router = useRouter();
@@ -11,6 +12,8 @@ export default function Home() {
   const [isMatch, setIsMatch] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [scores, setScores] = useState([]);
+  const [modelReady, setModelReady] = useState(false);
+  const [error, setError] = useState(null);
 
   let captureInterval = null;
   let sessionTimeout = null;
@@ -82,6 +85,28 @@ export default function Home() {
     }, duration);
   };
 
+  const loadModelDirectly = async () => {
+    try {
+      const modelPath = '/model/model.json'; 
+      console.log("Loading model from: ", modelPath);
+  
+      
+      const loadedModel = await tf.loadGraphModel(modelPath);
+      console.log("Main thread: Model loaded successfully.");
+      
+      //structure and weights manifest for debugging
+      console.log("Model Loaded:", loadedModel);
+      console.log("Model Weights Manifest:", loadedModel.weightsManifest);
+  
+      setModelReady(true);
+    } catch (error) {
+      console.error("Main thread: Model load error:", error);
+      setError(`Model load failed: ${error.message}`);
+    }
+  };
+  
+  
+
   return (
     <div className={styles.container}>
       <div className={styles.mainContent}>
@@ -104,6 +129,14 @@ export default function Home() {
         >
           {isSessionActive ? "Session in Progress..." : "Start Session"}
         </button>
+        <button
+          onClick={loadModelDirectly}
+          className={styles.button}
+          disabled={modelReady}
+        >
+          {modelReady ? "Model Loaded" : "Load Model (Main Thread)"}
+        </button>
+        {error && <div style={{ color: 'red' }}>Error: {error}</div>}
       </div>
     </div>
   );

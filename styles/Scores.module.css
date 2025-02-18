@@ -1,11 +1,13 @@
 .container {
     padding: 20px;
     text-align: center;
+    font-family: Arial, sans-serif;
   }
   
   .scoreList {
     list-style-type: none;
     padding: 0;
+    font-family: Arial, sans-serif;
   }
   
   .scoreList li {
@@ -13,6 +15,7 @@
     margin: 10px 0;
     padding: 10px;
     border: 1px solid #ddd;
+    font-family: Arial, sans-serif;
     border-radius: 5px;
   }
   
@@ -25,5 +28,6 @@
     text-decoration: none;
     border-radius: 5px;
     cursor: pointer;
+    font-family: Arial, sans-serif;
   }
   

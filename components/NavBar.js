@@ -1,4 +1,4 @@
-// components/Navbar.js
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -23,14 +23,14 @@ export default function Navbar() {
 
   return (
     <nav style={styles.navbar}>
-      {/* Left side: Link back to Home */}
+      
       <div>
         <Link legacyBehavior href="/">
           <a style={styles.homeLink}>CAMASL - Learn Sign language</a>
         </Link>
       </div>
 
-      {/* Right side: Hamburger menu */}
+      
       <div style={styles.menuContainer}>
         <button onClick={toggleMenu} style={styles.hamburgerButton} aria-label="Menu">
           <div style={styles.bar}></div>
@@ -80,6 +80,7 @@ const styles = {
     alignItems: 'center',
     padding: '10px 20px',
     backgroundColor: '#f5f5f5',
+    fontFamily: "'Arial', sans-serif",
     borderBottom: '1px solid #ddd',
     position: 'sticky',
     top: 0,
@@ -99,12 +100,14 @@ const styles = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
+    fontFamily: "'Arial', sans-serif",
     padding: 0,
   },
   bar: {
     width: '25px',
     height: '3px',
     backgroundColor: '#333',
+    fontFamily: "'Arial', sans-serif",
     margin: '4px 0',
   },
   dropdown: {
@@ -112,21 +115,25 @@ const styles = {
     top: '40px',
     right: 0,
     backgroundColor: '#fff',
+    fontFamily: "'Arial', sans-serif",
     boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
     borderRadius: '4px',
     zIndex: 1000,
   },
   menuList: {
     listStyle: 'none',
+    fontFamily: "'Arial', sans-serif",
     margin: 0,
     padding: '10px 0',
   },
   menuItem: {
     padding: '8px 20px',
+    fontFamily: "'Arial', sans-serif",
   },
   menuLink: {
     textDecoration: 'none',
     color: '#333',
+    fontFamily: "'Arial', sans-serif",
   },
   menuButton: {
     background: 'none',
@@ -135,5 +142,6 @@ const styles = {
     cursor: 'pointer',
     padding: 0,
     fontSize: 'inherit',
+    fontFamily: "'Arial', sans-serif",
   },
 };

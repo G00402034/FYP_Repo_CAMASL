@@ -1,29 +1,36 @@
 import React, { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
-// Import the worker using the next-worker loader syntax:
-import Worker from "../workers/handWorker.worker.js";
 
 export default function HandTracker({ onGestureDetected }) {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
   const [workerInstance, setWorkerInstance] = useState(null);
   const [modelReady, setModelReady] = useState(false);
+  const [error, setError] = useState(null);
+  const [model, setModel] = useState(null);
 
   // Create the worker once when the component mounts.
   useEffect(() => {
-    // Instantiate the worker using next-worker.
-    const worker = new Worker();
-    setWorkerInstance(worker);
-    console.log("HandTracker: Worker created", worker);
+    const worker = new Worker("/workers/handWorker.js");
 
-    // Listen for messages from the worker.
+    setWorkerInstance(worker);
+    console.log("HandTracker: Worker created");
+
+    // Listen for messages from the worker
     worker.onmessage = (e) => {
       const data = e.data;
-      if (data.status === "modelLoaded") {
+
+      if (data.status === "tfVersion") {
+        console.log("TensorFlow.js Version:", data.version);
+      } else if (data.status === "modelLoaded") {
         setModelReady(true);
         console.log("HandTracker: Model loaded in worker");
       } else if (data.status === "modelError") {
         console.error("HandTracker: Model load error in worker:", data.error);
+        setError(`Model load failed: ${data.error}`);
+      } else if (data.status === "predictionError") {
+        console.error("HandTracker: Prediction error in worker:", data.error);
+        setError(`Prediction failed: ${data.error}`);
       } else if (data.predictedSign !== undefined) {
         console.log("HandTracker: Received prediction from worker:", data.predictedSign);
         if (onGestureDetected) onGestureDetected(data.predictedSign);
@@ -32,14 +39,18 @@ export default function HandTracker({ onGestureDetected }) {
 
     worker.onerror = (err) => {
       console.error("HandTracker: Worker encountered an error:", err);
+      setError(`Worker error: ${err.message}`);
     };
+
+   
+    worker.postMessage({ command: "loadModel" });
 
     return () => {
       worker.terminate();
     };
   }, [onGestureDetected]);
 
-  // Detection loop: capture frames and send them to the worker when ready.
+  //capture frames and send them to the worker when ready.
   useEffect(() => {
     let lastWorkerCall = Date.now();
 
@@ -51,21 +62,19 @@ export default function HandTracker({ onGestureDetected }) {
         modelReady
       ) {
         const video = webcamRef.current.video;
-        // Update canvas dimensions (if needed)
         canvasRef.current.width = video.videoWidth;
         canvasRef.current.height = video.videoHeight;
 
         const now = Date.now();
-        // Throttle sending frames (e.g. every 500ms)
-        if (now - lastWorkerCall > 500) {
+        if (now - lastWorkerCall > 500) { // Throttle to every 500ms
           lastWorkerCall = now;
           try {
             const imageBitmap = await createImageBitmap(video);
             console.log("HandTracker: ImageBitmap created", imageBitmap.width, imageBitmap.height);
-            // Post the imageBitmap to the worker (transfer it).
             workerInstance.postMessage({ command: "predict", imageBitmap }, [imageBitmap]);
           } catch (err) {
             console.error("HandTracker: Error creating ImageBitmap:", err);
+            setError("Error processing the video frame");
           }
         }
       }
@@ -74,6 +83,24 @@ export default function HandTracker({ onGestureDetected }) {
 
     detectHands();
   }, [workerInstance, modelReady]);
+
+  // Load the model directly in the main thread 
+  const loadModelDirectly = async () => {
+    try {
+      const modelPath = '/model/model.json'; 
+      const loadedModel = await tf.loadGraphModel(modelPath);
+      setModel(loadedModel);
+      console.log("Main thread: Model loaded successfully.");
+      setModelReady(true);
+    } catch (error) {
+      console.error("Main thread: Model load error:", error);
+      setError(`Model load failed: ${error.message}`);
+    }
+  };
+
+  if (error) {
+    return <div style={{ color: 'red' }}>Error: {error}</div>;
+  }
 
   return (
     <div
@@ -86,7 +113,6 @@ export default function HandTracker({ onGestureDetected }) {
         justifyContent: "center",
       }}
     >
-      {/* Webcam Feed */}
       <Webcam
         ref={webcamRef}
         style={{
@@ -97,7 +123,6 @@ export default function HandTracker({ onGestureDetected }) {
         }}
         mirrored
       />
-      {/* Canvas Overlay (if needed) */}
       <canvas
         ref={canvasRef}
         style={{
@@ -109,6 +134,8 @@ export default function HandTracker({ onGestureDetected }) {
           pointerEvents: "none",
         }}
       />
+      <button onClick={loadModelDirectly}>Load Model (Main Thread)</button>
+      <div>{modelReady ? "Model Ready" : "Loading Model..."}</div>
     </div>
   );
 }

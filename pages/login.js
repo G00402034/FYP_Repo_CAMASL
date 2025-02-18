@@ -1,4 +1,4 @@
-// pages/login.js
+
 import { useState } from "react";
 import { useRouter } from "next/router";
 
@@ -19,7 +19,7 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        // Save the username to local storage (or any token/identifier as needed)
+       
         localStorage.setItem("loggedInUser", username);
         router.push("/");
       } else {
