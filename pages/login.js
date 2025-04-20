@@ -1,61 +1,72 @@
-
-import { useState } from "react";
-import { useRouter } from "next/router";
+import React, { useState } from 'react';
+import { useRouter } from 'next/router';
+import styles from '../styles/Register.module.css';
 
 export default function Login() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
+
     try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
       });
-      const data = await response.json();
 
-      if (response.ok) {
-       
-        localStorage.setItem("loggedInUser", username);
-        router.push("/");
+      const result = await response.json();
+      if (response.ok && result.success) {
+        console.log('Login successful, redirecting to home');
+        router.push('/');
       } else {
-        setError(data.message);
+        setError(result.message || 'Login failed');
       }
-    } catch (error) {
-      console.error("Error logging in:", error);
-      setError("An unexpected error occurred.");
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="container">
-      <h2>Login</h2>
-      <form onSubmit={handleLogin} className="form">
+    <div className={styles.container}>
+      <h1 className={styles.title}>Login</h1>
+      <form onSubmit={handleSubmit} className={styles.form}>
         <input
           type="text"
           placeholder="Username"
-          className="input"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
+          className={styles.input}
         />
         <input
           type="password"
           placeholder="Password"
-          className="input"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          className={styles.input}
         />
-        <button type="submit" className="button">
-          Login
+        {error && <p className={styles.error}>{error}</p>}
+        <button type="submit" className={styles.button} disabled={loading}>
+          {loading ? 'Logging in...' : 'Login'}
         </button>
       </form>
-      {error && <p>{error}</p>}
+      <p className={styles.registerLink}>
+        Don&apos;t have an account?{' '}
+        <a href="/register">
+          Register
+        </a>
+      </p>
     </div>
   );
 }

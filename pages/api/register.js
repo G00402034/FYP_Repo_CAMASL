@@ -1,4 +1,3 @@
-// pages/api/register.js
 import clientPromise from '../../lib/mongodb';
 import bcrypt from 'bcrypt';
 
@@ -14,11 +13,10 @@ export default async function handler(req, res) {
       const client = await clientPromise;
       const db = client.db('mydatabase'); 
 
-      
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      // Generate a random salt
+      const salt = await bcrypt.genSaltSync(12); // 12 rounds for a good balance of security and performance
+      const hashedPassword = await bcrypt.hash(password, salt);
 
-      
       const result = await db.collection('users').insertOne({ username, password: hashedPassword });
 
       res.status(201).json({ success: true, data: { id: result.insertedId, username } });

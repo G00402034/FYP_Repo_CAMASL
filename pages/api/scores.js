@@ -1,35 +1,43 @@
-import clientPromise from "../../lib/mongodb";
+import clientPromise from '../../lib/mongodb';
 
 export default async function handler(req, res) {
   const client = await clientPromise;
-  const db = client.db("mydatabase");
+  const db = client.db('mydatabase');
 
-  switch (req.method) {
-    case "GET": {
-      // Fetch scores for a specific user
-      const { username } = req.query;
+  if (req.method === 'POST') {
+    const { username, sign, score, confidence, date } = req.body;
 
-      if (!username) {
-        return res.status(400).json({ success: false, message: "Username is required" });
-      }
-
-      const scores = await db.collection("scores").find({ username }).toArray();
-      return res.status(200).json({ success: true, data: scores });
+    if (!username || !sign || !score || !confidence || !date) {
+      return res.status(400).json({ success: false, message: 'All fields are required.' });
     }
 
-    case "POST": {
-      // Save a new score entry
-      const { username, sign, score, date } = req.body;
+    try {
+      const result = await db.collection('scores').insertOne({
+        username,
+        sign,
+        score,
+        confidence,
+        date,
+      });
 
-      if (!username || !sign || typeof score !== "number") {
-        return res.status(400).json({ success: false, message: "Invalid data" });
-      }
+      res.status(201).json({ success: true, data: { id: result.insertedId, username, sign, score, confidence, date } });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Database error: ' + error.message });
+    }
+  } else if (req.method === 'GET') {
+    const { username } = req.query;
 
-      const result = await db.collection("scores").insertOne({ username, sign, score, date: date || new Date() });
-      return res.status(201).json({ success: true, data: result });
+    if (!username) {
+      return res.status(400).json({ success: false, message: 'Username is required.' });
     }
 
-    default:
-      res.status(405).json({ success: false, message: "Method Not Allowed" });
+    try {
+      const scores = await db.collection('scores').find({ username }).toArray();
+      res.status(200).json({ success: true, data: scores });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Database error: ' + error.message });
+    }
+  } else {
+    res.status(405).json({ success: false, message: 'Method Not Allowed' });
   }
 }

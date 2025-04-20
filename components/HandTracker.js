@@ -1,141 +1,129 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import Webcam from "react-webcam";
 
-export default function HandTracker({ onGestureDetected }) {
+export default function HandTracker({ onGestureDetected, currentPrompt, isSessionActive }) {
   const webcamRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [workerInstance, setWorkerInstance] = useState(null);
-  const [modelReady, setModelReady] = useState(false);
+  const [isPredicting, setIsPredicting] = useState(false);
   const [error, setError] = useState(null);
-  const [model, setModel] = useState(null);
+  const [webcamReady, setWebcamReady] = useState(false); // Track webcam readiness
 
-  // Create the worker once when the component mounts.
-  useEffect(() => {
-    const worker = new Worker("/workers/handWorker.js");
+  const captureAndPredict = async () => {
+    if (!webcamRef.current || isPredicting) return;
 
-    setWorkerInstance(worker);
-    console.log("HandTracker: Worker created");
-
-    // Listen for messages from the worker
-    worker.onmessage = (e) => {
-      const data = e.data;
-
-      if (data.status === "tfVersion") {
-        console.log("TensorFlow.js Version:", data.version);
-      } else if (data.status === "modelLoaded") {
-        setModelReady(true);
-        console.log("HandTracker: Model loaded in worker");
-      } else if (data.status === "modelError") {
-        console.error("HandTracker: Model load error in worker:", data.error);
-        setError(`Model load failed: ${data.error}`);
-      } else if (data.status === "predictionError") {
-        console.error("HandTracker: Prediction error in worker:", data.error);
-        setError(`Prediction failed: ${data.error}`);
-      } else if (data.predictedSign !== undefined) {
-        console.log("HandTracker: Received prediction from worker:", data.predictedSign);
-        if (onGestureDetected) onGestureDetected(data.predictedSign);
-      }
-    };
-
-    worker.onerror = (err) => {
-      console.error("HandTracker: Worker encountered an error:", err);
-      setError(`Worker error: ${err.message}`);
-    };
-
-   
-    worker.postMessage({ command: "loadModel" });
-
-    return () => {
-      worker.terminate();
-    };
-  }, [onGestureDetected]);
-
-  //capture frames and send them to the worker when ready.
-  useEffect(() => {
-    let lastWorkerCall = Date.now();
-
-    const detectHands = async () => {
-      if (
-        webcamRef.current &&
-        webcamRef.current.video.readyState === 4 &&
-        workerInstance &&
-        modelReady
-      ) {
-        const video = webcamRef.current.video;
-        canvasRef.current.width = video.videoWidth;
-        canvasRef.current.height = video.videoHeight;
-
-        const now = Date.now();
-        if (now - lastWorkerCall > 500) { // Throttle to every 500ms
-          lastWorkerCall = now;
-          try {
-            const imageBitmap = await createImageBitmap(video);
-            console.log("HandTracker: ImageBitmap created", imageBitmap.width, imageBitmap.height);
-            workerInstance.postMessage({ command: "predict", imageBitmap }, [imageBitmap]);
-          } catch (err) {
-            console.error("HandTracker: Error creating ImageBitmap:", err);
-            setError("Error processing the video frame");
-          }
-        }
-      }
-      setTimeout(detectHands, 100);
-    };
-
-    detectHands();
-  }, [workerInstance, modelReady]);
-
-  // Load the model directly in the main thread 
-  const loadModelDirectly = async () => {
+    setIsPredicting(true);
     try {
-      const modelPath = '/model/model.json'; 
-      const loadedModel = await tf.loadGraphModel(modelPath);
-      setModel(loadedModel);
-      console.log("Main thread: Model loaded successfully.");
-      setModelReady(true);
-    } catch (error) {
-      console.error("Main thread: Model load error:", error);
-      setError(`Model load failed: ${error.message}`);
+      if (!webcamRef.current.video || webcamRef.current.video.readyState !== 4) {
+        throw new Error("Webcam not ready");
+      }
+
+      const imageSrc = webcamRef.current.getScreenshot();
+      if (!imageSrc) {
+        throw new Error("Failed to capture webcam frame");
+      }
+
+      if (!imageSrc.startsWith("data:image/jpeg;base64,")) {
+        throw new Error("Invalid screenshot format");
+      }
+      const base64Data = imageSrc.split(",")[1];
+      if (!base64Data) {
+        throw new Error("Empty base64 data");
+      }
+
+      const payload = { image: base64Data };
+      if (currentPrompt) {
+        payload.target_sign = currentPrompt;
+      }
+
+      console.log("Sending payload:", {
+        imageLength: base64Data.length,
+        target_sign: payload.target_sign,
+      });
+
+      const predictResponse = await fetch("/api/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!predictResponse.ok) {
+        const errorData = await predictResponse.json();
+        throw new Error(`Prediction failed: ${JSON.stringify(errorData)}`);
+      }
+
+      const data = await predictResponse.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (onGestureDetected) {
+        const normalizedGesture = data.predictedSign.toUpperCase();
+        const normalizedPrompt = currentPrompt.toUpperCase();
+        const isCorrect = normalizedGesture === normalizedPrompt;
+        console.log("Prediction result:", {
+          predictedSign: data.predictedSign,
+          isCorrect: isCorrect,
+          confidence: data.confidence,
+          targetSign: currentPrompt,
+        });
+        onGestureDetected({
+          gesture: data.predictedSign,
+          isCorrect: isCorrect,
+          confidence: data.confidence,
+        });
+      }
+    } catch (err) {
+      console.error("Prediction error:", err);
+      setError(err.message);
+    } finally {
+      setIsPredicting(false);
     }
   };
 
-  if (error) {
-    return <div style={{ color: 'red' }}>Error: {error}</div>;
-  }
+  useEffect(() => {
+    let interval;
+    if (webcamReady) { // Only start interval when webcam is ready
+      interval = setInterval(captureAndPredict, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [webcamReady, currentPrompt, isSessionActive]); 
+
+  useEffect(() => {
+    if (error) {
+      const timeout = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [error]);
 
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
+    <div className="relative w-full h-full">
       <Webcam
         ref={webcamRef}
-        style={{
-          position: "absolute",
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-        }}
+        className="w-full h-full object-contain"
+        screenshotFormat="image/jpeg"
+        screenshotQuality={0.9}
         mirrored
-      />
-      <canvas
-        ref={canvasRef}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          pointerEvents: "none",
+        videoConstraints={{
+          width: 640,
+          height: 480,
+          facingMode: "user",
+        }}
+        onUserMedia={() => {
+          setWebcamReady(true); 
+          console.log("Webcam stream initialized");
+        }}
+        onUserMediaError={(err) => {
+          console.error("Webcam access error:", err);
+          setError("Failed to access webcam. Please allow camera permissions.");
+          setWebcamReady(false); 
         }}
       />
-      <button onClick={loadModelDirectly}>Load Model (Main Thread)</button>
-      <div>{modelReady ? "Model Ready" : "Loading Model..."}</div>
+      {error && (
+        <div className="absolute top-2 left-2 bg-white text-red-500 p-2 rounded">
+          Error: {error}
+        </div>
+      )}
     </div>
   );
 }

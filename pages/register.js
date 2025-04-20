@@ -6,10 +6,11 @@ export default function Register() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
-  const router = useRouter(); 
+  const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage('');
 
     const response = await fetch('/api/register', {
       method: 'POST',
@@ -22,7 +23,7 @@ export default function Register() {
     const data = await response.json();
     if (data.success) {
       setMessage('User registered successfully!');
-      setTimeout(() => router.push('/'), 2000); // Redirect after 2 seconds
+      setTimeout(() => router.push('/login'), 2000); // Redirect to login page after 2 seconds
     } else {
       setMessage('Error: ' + data.message);
     }
@@ -30,7 +31,7 @@ export default function Register() {
 
   return (
     <div className={styles.container}>
-      <h1>Register</h1>
+      <h1 className={styles.title}>Register</h1>
       <form onSubmit={handleSubmit} className={styles.form}>
         <input
           type="text"
@@ -50,7 +51,13 @@ export default function Register() {
         />
         <button type="submit" className={styles.button}>Register</button>
       </form>
-      {message && <p>{message}</p>}
+      {message && <p className={styles.message}>{message}</p>}
+      <p className={styles.loginLink}>
+        Already have an account?{' '}
+        <a href="/login">
+          Login
+        </a>
+      </p>
     </div>
   );
 }

@@ -3,140 +3,171 @@ import { useRouter } from "next/router";
 import SignPrompt from "../components/SignPrompt";
 import HandTracker from "../components/HandTracker";
 import styles from "../styles/Home.module.css";
-import * as tf from "@tensorflow/tfjs";
+import Cookies from "js-cookie";
 
 export default function Home() {
   const router = useRouter();
   const [currentPrompt, setCurrentPrompt] = useState("A");
-  const [detectedGesture, setDetectedGesture] = useState("Unknown Gesture");
-  const [isMatch, setIsMatch] = useState(false);
+  const [detectedGesture, setDetectedGesture] = useState(null);
   const [isSessionActive, setIsSessionActive] = useState(false);
-  const [scores, setScores] = useState([]);
-  const [modelReady, setModelReady] = useState(false);
-  const [error, setError] = useState(null);
-
-  let captureInterval = null;
-  let sessionTimeout = null;
+  const [sessionResults, setSessionResults] = useState([]);
+  const [loggedInUser, setLoggedInUser] = useState(null);
 
   useEffect(() => {
-    return () => {
-      if (captureInterval) clearInterval(captureInterval);
-      if (sessionTimeout) clearTimeout(sessionTimeout);
-    };
-  }, []);
+    const user = Cookies.get("loggedInUser");
+    console.log('Index: Cookie loggedInUser:', user);
+    if (user) {
+      setLoggedInUser(user);
+    } else {
+      console.log('Index: No user found, redirecting to login');
+      router.push("/login");
+    }
+  }, [router]);
 
   const handleNewPrompt = (newPrompt) => {
     setCurrentPrompt(newPrompt);
-    setIsMatch(false);
-    setScores([]);
+    setDetectedGesture(null);
   };
 
-  const handleGestureDetected = (gesture) => {
-    console.log("Main: Detected gesture:", gesture);
-    setDetectedGesture(gesture);
-    setIsMatch(gesture.toLowerCase() === currentPrompt.toLowerCase());
+  const handleGestureDetected = (result) => {
+    setDetectedGesture(result);
+    
+    if (isSessionActive) {
+      setSessionResults((prev) => {
+        const newResults = [
+          ...prev,
+          {
+            timestamp: Date.now(),
+            gesture: result.gesture,
+            isCorrect: result.isCorrect,
+            confidence: result.confidence,
+          },
+        ];
+        console.log("Gesture detected:", {
+          gesture: result.gesture,
+          isCorrect: result.isCorrect,
+          confidence: result.confidence,
+          currentPrompt,
+          totalResults: newResults.length,
+        });
+        return newResults;
+      });
+    }
   };
 
   const handleSession = async () => {
-    const loggedInUser = localStorage.getItem("loggedInUser");
     if (!loggedInUser) {
+      console.log('Session: No user, redirecting to login');
       alert("Please log in first!");
       router.push("/login");
       return;
     }
 
     setIsSessionActive(true);
-    setScores([]);
+    setSessionResults([]);
 
-    const duration = 30000; // 30 seconds
-    const interval = 1000;  // capture every 1 second
-
-    captureInterval = setInterval(() => {
-      setScores((prevScores) => [
-        ...prevScores,
-        detectedGesture.toLowerCase() === currentPrompt.toLowerCase() ? 1 : 0,
-      ]);
-    }, interval);
-
-    sessionTimeout = setTimeout(async () => {
-      clearInterval(captureInterval);
+    setTimeout(async () => {
       setIsSessionActive(false);
+      
+      console.log("Session ended:", {
+        sessionResults,
+        total: sessionResults.length,
+        correct: sessionResults.filter((r) => r.isCorrect).length,
+      });
 
-      if (scores.length === 0) {
+      if (sessionResults.length === 0) {
         alert("No gestures detected. Please try again!");
         return;
       }
 
-      const accuracyScore = (scores.filter((s) => s === 1).length / scores.length) * 100;
+      const correctCount = sessionResults.filter((r) => r.isCorrect).length;
+      const accuracyScore = (correctCount / sessionResults.length) * 100;
+      const avgConfidence =
+        sessionResults.reduce((sum, r) => sum + r.confidence, 0) /
+        sessionResults.length;
 
-      // Save score in the database.
-      await fetch("/api/scores", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      try {
+        const scoreData = {
           username: loggedInUser,
           sign: currentPrompt,
           score: accuracyScore,
-          date: new Date(),
-        }),
-      });
+          confidence: avgConfidence,
+          date: new Date().toISOString(),
+        };
+        console.log("Sending score:", scoreData);
 
-      alert(`Your accuracy for ${currentPrompt}: ${accuracyScore.toFixed(2)}%`);
-    }, duration);
-  };
+        const response = await fetch("/api/scores", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(scoreData),
+        });
 
-  const loadModelDirectly = async () => {
-    try {
-      const modelPath = '/model/model.json'; 
-      console.log("Loading model from: ", modelPath);
-  
-      
-      const loadedModel = await tf.loadGraphModel(modelPath);
-      console.log("Main thread: Model loaded successfully.");
-      
-      //structure and weights manifest for debugging
-      console.log("Model Loaded:", loadedModel);
-      console.log("Model Weights Manifest:", loadedModel.weightsManifest);
-  
-      setModelReady(true);
-    } catch (error) {
-      console.error("Main thread: Model load error:", error);
-      setError(`Model load failed: ${error.message}`);
-    }
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || "Failed to save score");
+        }
+
+        console.log("Score saved:", result.data);
+        alert(`Session completed! Accuracy: ${accuracyScore.toFixed(1)}%`);
+      } catch (error) {
+        console.error("Failed to save score:", error);
+        alert(`Failed to save session results: ${error.message}`);
+      }
+    }, 30000);
   };
-  
-  
 
   return (
     <div className={styles.container}>
       <div className={styles.mainContent}>
         <div className={styles.cameraContainer}>
-          <HandTracker onGestureDetected={handleGestureDetected} />
-        </div>
-        <div className={styles.signContainer}>
-          <SignPrompt
-            onNewPrompt={handleNewPrompt}
-            detectedGesture={detectedGesture}
-            isMatch={isMatch}
+          <HandTracker
+            onGestureDetected={handleGestureDetected}
+            currentPrompt={currentPrompt}
+            isSessionActive={isSessionActive}
           />
         </div>
+
+        <div className={styles.signContainer}>
+          <div className={styles.signBox}>
+            Current Sign: {currentPrompt}
+            {detectedGesture && (
+              <div
+                className={
+                  detectedGesture.isCorrect ? styles.correct : styles.incorrect
+                }
+              >
+                {detectedGesture.gesture} (
+                {Math.round(detectedGesture.confidence * 100)}%)
+              </div>
+            )}
+          </div>
+          <div className={styles.imageBox}>
+            <img
+              src={`/signs/${currentPrompt}.jpg`}
+              alt={`Sign ${currentPrompt}`}
+            />
+          </div>
+          <SignPrompt onNewPrompt={handleNewPrompt} />
+        </div>
       </div>
+
       <div className={styles.controls}>
         <button
           onClick={handleSession}
           className={styles.button}
           disabled={isSessionActive}
         >
-          {isSessionActive ? "Session in Progress..." : "Start Session"}
+          {isSessionActive
+            ? `Session in progress... (${sessionResults.length} samples)`
+            : "Start 30s Session"}
         </button>
-        <button
-          onClick={loadModelDirectly}
-          className={styles.button}
-          disabled={modelReady}
-        >
-          {modelReady ? "Model Loaded" : "Load Model (Main Thread)"}
-        </button>
-        {error && <div style={{ color: 'red' }}>Error: {error}</div>}
+
+        {isSessionActive && (
+          <div className={styles.sessionStats}>
+            Correct: {sessionResults.filter((r) => r.isCorrect).length} /{" "}
+            {sessionResults.length}
+          </div>
+        )}
       </div>
     </div>
   );

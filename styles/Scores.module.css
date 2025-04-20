@@ -1,5 +1,6 @@
 .container {
     padding: 20px;
+    
     text-align: center;
     font-family: Arial, sans-serif;
   }
@@ -8,6 +9,7 @@
     list-style-type: none;
     padding: 0;
     font-family: Arial, sans-serif;
+    
   }
   
   .scoreList li {
@@ -19,15 +21,98 @@
     border-radius: 5px;
   }
   
-  .button {
+  
+
+  .container {
+    padding: 20px;
+    text-align: center;
+  }
+  
+  .scoreTable th, .scoreTable td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: center;
+  }
+  
+  .container {
+    padding: 20px;
+    text-align: center;
+    background-image: url('/backgrounds/background.jpeg'); 
+    background-size: cover;
+    background-position: center;
+    min-height: 100vh;
+    position: relative;
+  }
+  
+  /* Adding semi-transparent background for the content */
+  .scoreTable {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+    background-color: rgba(255, 255, 255, 0.8); /* Translucent white for better contrast */
+    border-radius: 10px;
+    padding: 10px;
+  }
+  
+  /* Ensuring the progress bar has good contrast against the background */
+  .progressBar {
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.1); /* Darker background for progress bars */
+    border-radius: 8px;
+    height: 20px;
+  }
+  
+  .progress {
+    height: 100%;
+    background-color: #4caf50;
+    border-radius: 8px;
+  }
+  
+  .button, .filters button, .fancyButton {
     display: inline-block;
     margin-top: 20px;
     padding: 10px 20px;
-    background-color: #0070f3;
+    background-color: #2c3e50;
     color: white;
     text-decoration: none;
     border-radius: 5px;
     cursor: pointer;
     font-family: Arial, sans-serif;
+    font-size: 16px; /* Make font size consistent */
+    text-align: center; /* Ensures the text is centered */
   }
   
+  /* Consistent background color for all buttons */
+  .filters button, .fancyButton {
+    background-color: #2c3e50;
+  }
+  
+  /* Hover effect for buttons */
+  .button:hover, .filters button:hover, .fancyButton:hover {
+    background-color: #0056b3;
+  }
+  
+  /* Adjust the width of the filter buttons */
+  .filters button {
+    width: 180px; /* Same width for all filter buttons */
+  }
+  
+  /* Ensure input field is consistent in size with buttons */
+  .filters input {
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    margin-right: 10px;
+  }
+  
+  /* Style for the header box */
+  .headerBox {
+    background-color: #2c3e50; /* Dark background color */
+    color: white;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    font-size: 24px;
+    font-weight: bold;
+  }
