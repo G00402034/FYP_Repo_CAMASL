@@ -14,7 +14,7 @@ export default async function handler(req, res) {
       const db = client.db('mydatabase'); 
 
       // Generate a random salt
-      const salt = await bcrypt.genSaltSync(12); // 12 rounds for a good balance of security and performance
+      const salt = await bcrypt.genSaltSync(12); 
       const hashedPassword = await bcrypt.hash(password, salt);
 
       const result = await db.collection('users').insertOne({ username, password: hashedPassword });

@@ -23,8 +23,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: 'Invalid password' });
       }
 
-      // Set cookie without HttpOnly for debugging
-      console.log(`Setting cookie: loggedInUser=${username}`);
+      
+      
       res.setHeader('Set-Cookie', `loggedInUser=${username}; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Strict`);
 
       res.status(200).json({ success: true, message: 'Login successful', username });

@@ -11,7 +11,6 @@ export default function Navbar() {
 
   useEffect(() => {
     const user = Cookies.get("loggedInUser");
-    console.log('Navbar: Cookie loggedInUser:', user);
     setLoggedInUser(user);
   }, [router.pathname]);
 

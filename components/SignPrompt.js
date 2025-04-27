@@ -3,12 +3,12 @@ import React, { useEffect, useState } from 'react';
 export default function SignPrompt({ onNewPrompt }) {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   const [currentSign, setCurrentSign] = useState('A');
-  const [isHovered, setIsHovered] = useState(false); // Track hover state
+  const [isHovered, setIsHovered] = useState(false); 
 
   const getNextSign = () => {
     const nextSign = letters[Math.floor(Math.random() * letters.length)];
     setCurrentSign(nextSign);
-    if (onNewPrompt) onNewPrompt(nextSign); // Pass new sign to the parent component
+    if (onNewPrompt) onNewPrompt(nextSign); 
   };
 
   useEffect(() => {

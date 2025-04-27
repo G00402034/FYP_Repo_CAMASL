@@ -15,12 +15,10 @@ export default function Scores() {
 
   useEffect(() => {
     const user = Cookies.get("loggedInUser");
-    console.log('Scores: Cookie loggedInUser:', user);
     if (user) {
       setLoggedInUser(user);
       fetchScores(user);
     } else {
-      console.log('Scores: No user found, redirecting to login');
       router.push("/login");
     }
   }, [router]);

@@ -6,8 +6,7 @@ export function middleware(req) {
  
   if (pathname === '/' || pathname === '/scores') {
     const loggedInUser = req.cookies.get('loggedInUser')?.value;
-    console.log(`Middleware - Path: ${pathname}, Cookie: ${loggedInUser}`);
-
+    
     if (!loggedInUser) {
       return NextResponse.redirect(new URL('/login', req.url));
     }

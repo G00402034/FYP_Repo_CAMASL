@@ -15,11 +15,9 @@ export default function Home() {
 
   useEffect(() => {
     const user = Cookies.get("loggedInUser");
-    console.log('Index: Cookie loggedInUser:', user);
     if (user) {
       setLoggedInUser(user);
     } else {
-      console.log('Index: No user found, redirecting to login');
       router.push("/login");
     }
   }, [router]);
@@ -43,13 +41,7 @@ export default function Home() {
             confidence: result.confidence,
           },
         ];
-        console.log("Gesture detected:", {
-          gesture: result.gesture,
-          isCorrect: result.isCorrect,
-          confidence: result.confidence,
-          currentPrompt,
-          totalResults: newResults.length,
-        });
+        
         return newResults;
       });
     }
@@ -69,12 +61,6 @@ export default function Home() {
     setTimeout(async () => {
       setIsSessionActive(false);
       
-      console.log("Session ended:", {
-        sessionResults,
-        total: sessionResults.length,
-        correct: sessionResults.filter((r) => r.isCorrect).length,
-      });
-
       if (sessionResults.length === 0) {
         alert("No gestures detected. Please try again!");
         return;
